@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Cui｜代理喊單</title>
+<style>
+:root{--bg:#fcf8f4;--card:#fff;--text:#4a4140;--muted:#9c8e8a;--accent:#d1808a;--btn:#e9a9ad;--line:#f3e8e3;--on:#fff;color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#231e1d;--card:#2e2827;--text:#f1e9e6;--muted:#a89995;--accent:#e9a0a8;--btn:#c46f7a;--line:#403735;color-scheme:dark}}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,"PingFang TC","Noto Sans TC","Microsoft JhengHei",sans-serif;line-height:1.5}
+header{padding:22px 16px 8px;text-align:center}
+h1{margin:0;font-size:22px;color:var(--accent)}
+header p{margin:4px 0 0;color:var(--muted);font-size:13px}
+main{max-width:720px;margin:0 auto;padding:0 14px 110px}
+input,textarea{width:100%;font:inherit;padding:10px 12px;margin:4px 0 10px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--text)}
+#search{margin:6px 0 0}
+#chips{display:flex;gap:8px;overflow-x:auto;padding:10px 0}
+button{font:inherit;cursor:pointer;border:0;border-radius:99px;padding:9px 16px;background:var(--btn);color:var(--on);font-weight:600}
+button:disabled{opacity:.4;cursor:default}
+.chip{white-space:nowrap;background:var(--card);color:var(--text);border:1px solid var(--line);padding:6px 14px;font-weight:500}
+.chip.on{background:var(--btn);color:var(--on);border-color:transparent}
+.ghost{background:var(--card);color:var(--accent);border:1px solid var(--line)}
+.item{display:flex;align-items:center;gap:10px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:10px 12px;margin-bottom:8px}
+.item.out{opacity:.5}
+.info{flex:1;min-width:0}
+.name{font-weight:600}
+.desc{font-size:12px;color:var(--muted)}
+.price{color:var(--accent);font-weight:700;font-size:14px}
+.qty{display:flex;align-items:center;gap:8px;font-weight:700}
+.qty button{width:34px;height:34px;padding:0;font-size:18px;line-height:1}
+.qty span{min-width:20px;text-align:center}
+#bar{position:fixed;left:0;right:0;bottom:0;background:var(--card);border-top:1px solid var(--line);padding:12px 16px calc(12px + env(safe-area-inset-bottom,0px));display:flex;justify-content:space-between;align-items:center}
+#sheet{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:5}
+#panel{position:absolute;left:0;right:0;bottom:0;max-height:92%;overflow:auto;background:var(--bg);border-radius:18px 18px 0 0;padding:18px 16px calc(24px + env(safe-area-inset-bottom,0px))}
+.row{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--line);gap:8px}
+label{font-size:13px;color:var(--muted)}
+pre{white-space:pre-wrap;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px;font:inherit;font-size:14px}
+.full{width:100%;margin-top:8px;display:block;text-align:center;text-decoration:none}
+a.full{padding:9px 16px;border-radius:99px}
+.note{font-size:12px;color:var(--muted)}
+</style>
+</head>
+<body>
+<header><h1>🍬 Cui｜代理喊單</h1><p>選數量 → 產生訂單 → 複製貼到官方LINE</p></header>
+<main>
+<input id="search" type="search" placeholder="🔍 搜尋商品" oninput="renderList()">
+<div id="chips"></div>
+<div id="list"></div>
+</main>
+<div id="bar"><div>共 <b id="cnt">0</b> 件・NT$ <b id="tot">0</b></div><button onclick="openSheet()">產生訂單</button></div>
+<div id="sheet"><div id="panel"></div></div>
+
+<!-- 商品清單：每行「分類|商品名稱|代理價|簡介」。簡介含「缺貨」會自動不能點。價格目前沿用零售價，請改成代理價 -->
+<script type="text/plain" id="data">螺螄粉|好歡紫|92|現貨
+螺螄粉|好歡黃（增量版）|115|現貨
+螺螄粉|好歡蝦|115|現貨
+螺螄粉|好歡加辣臭（下週到）|115|現貨
+螺螄粉|好歡土豆|130|現貨
+螺螄粉|李子柒|90|現貨
+螺螄粉|李子柒酸辣粉|90|現貨
+螺螄粉|李子柒霸道濃湯|115|目前缺貨
+螺螄粉|李子柒麻醬乾拌|115|現貨
+螺螄粉|臭寶酸筍|90|現貨
+螺螄粉|臭寶腐竹|90|現貨
+螺螄粉|臭寶螺螄土豆|90|目前缺貨
+螺螄粉|孫姐黑（原味）|90|現貨
+螺螄粉|孫姐紅（加辣加響鈴卷）|90|現貨
+螺螄粉|孫姐藍（加量螺肉）|90|現貨
+螺螄粉|螺霸王|90|現貨
+螺螄粉|螺霸王蕃茄|90|現貨
+螺螄粉|螺螄粉乾粉包|35|目前缺貨
+袋裝主食|宛禾砂鍋土豆粉|100|現貨
+袋裝主食|宛禾螺螄土豆粉|110|目前缺貨
+袋裝主食|宛禾麻醬米線|100|現貨
+袋裝主食|滿小飽肥汁米線|110|現貨
+袋裝主食|滿小飽酸菜米線|110|現貨
+袋裝主食|滿小飽雲南米線|110|目前缺貨
+袋裝主食|滿小飽松茸雞湯米線|110|目前缺貨
+袋裝主食|滿小飽肉醬米線|110|現貨
+袋裝主食|滿小飽黑鴨拌粉|110|現貨
+袋裝主食|滿小飽土豆|120|現貨
+袋裝主食|村驢家 過橋米線|110|現貨
+袋裝主食|村驢家 砂鍋土豆|110|現貨
+袋裝主食|村驢家 黏糊麻辣燙|140|目前缺貨
+袋裝主食|阿寬粉耗子（甜辣）|85|現貨
+袋裝主食|阿寬粉耗子（酸辣）|85|現貨
+袋裝主食|白家一根粉耗子|85|現貨
+袋裝主食|田小花流汁寬粉（紅油）|85|現貨
+袋裝主食|田小花流汁寬粉（酸辣）|85|現貨
+袋裝主食|田小花流汁寬粉（麻醬）|85|現貨
+袋裝主食|渣渣灰南昌拌粉|75|目前缺貨
+袋裝主食|合味芳熱乾麵|45|現貨
+袋裝主食|合味芳剁椒拌粉|95|目前缺貨
+袋裝主食|李海龍麻辣燙|120|現貨
+袋裝主食|奉天美玲麻辣燙|120|目前缺貨
+袋裝主食|白象麻辣燙|120|現貨
+袋裝主食|天水麻辣燙|100|現貨
+袋裝主食|龍七爺山西拌麻辣燙（酸甜）|120|現貨
+袋裝主食|龍七爺山西拌麻辣燙（爆辣）|120|現貨
+袋裝主食|絲令館酸辣粉|45|現貨
+袋裝主食|莫小仙大拌菜|110|現貨
+桶裝主食|好歡桶裝|90|目前缺貨
+桶裝主食|臭寶桶裝|90|目前缺貨
+桶裝主食|莫小仙酸辣粉|75|現貨
+桶裝主食|食族人酸辣粉|75|現貨
+桶裝主食|食族人流汁寬粉|75|目前缺貨
+桶裝主食|食族人貢菜酸辣粉|80|現貨
+桶裝主食|白象蟹黃拌麵|75|現貨
+桶裝主食|白象粉耗子|70|現貨
+桶裝主食|陳薯酸辣粉|75|現貨
+桶裝主食|麻六記酸辣粉|75|現貨
+桶裝主食|嗨吃家酸辣粉|75|現貨
+桶裝主食|班幹部酸辣粉|75|目前缺貨
+桶裝主食|華味坊 金湯肥牛|75|目前缺貨
+桶裝主食|華味坊 紫菜蝦米|75|現貨
+桶裝主食|麗星豆芽酸辣寬粉|75|現貨
+桶裝主食|麗星料多多酸辣粉|80|現貨
+桶裝主食|蜀山故事 四川冒菜|75|現貨
+桶裝主食|莫小仙自熱火鍋（麻辣燙）|110|現貨
+桶裝主食|莫小仙自熱火鍋（老成都）|110|現貨
+桶裝主食|莫小仙自熱火鍋（香辣蔬食）|110|現貨
+桶裝主食|田小花自熱火鍋（香辣）|110|目前缺貨
+桶裝主食|田小花自熱火鍋（麻辣）|110|現貨
+桶裝主食|田小花自熱火鍋（蕃茄）|110|目前缺貨
+桶裝主食|田小花砂鍋土豆（香辣）|110|現貨
+桶裝主食|田小花砂鍋土豆（麻辣）|110|目前缺貨
+桶裝主食|田小花砂鍋土豆（麻醬）|110|目前缺貨
+桶裝主食|絲米達自熱鍋（魚丸）|110|目前缺貨
+桶裝主食|絲米達自熱鍋（魚排）|110|目前缺貨
+桶裝主食|絲米達自熱鍋（蔬菜）|110|目前缺貨
+桶裝主食|蜀小麗老成都火鍋|110|現貨
+桶裝主食|外婆的菜園子自熱鍋|150|現貨
+桶裝主食|愚樂自熱年糕|100|現貨，多規格，請在備註寫想要的
+零食專區|衛龍 魔芋爽5包（香辣）|40|現貨
+零食專區|衛龍 魔芋爽5包（麻辣）|40|現貨
+零食專區|衛龍 魔芋爽5包（酸辣）|40|現貨
+零食專區|衛龍 魔芋爽5包（麻醬）|40|現貨
+零食專區|衛龍 魔芋爽5包（海帶）|40|現貨
+零食專區|艾妍 魔芋貢菜5包（香辣）|60|現貨
+零食專區|艾妍 魔芋貢菜5包（蒜蓉）|60|現貨
+零食專區|艾妍 魔芋貢菜5包（酸辣）|60|現貨
+零食專區|好味屋 素蝦仁5包（香辣）|30|現貨
+零食專區|好味屋 素蝦仁5包（蒜蓉）|30|現貨
+零食專區|好味屋 素蝦仁5包（山椒）|30|現貨
+零食專區|金磨坊 魚豆腐5包（香辣）|30|現貨
+零食專區|金磨坊 魚豆腐5包（燒烤）|30|現貨
+零食專區|金磨坊 魚豆腐5包（海鮮）|30|現貨
+零食專區|金磨坊 蟹柳5包|30|現貨
+零食專區|麻辣王子5包|60|現貨
+零食專區|牛筋博士5包|40|現貨
+零食專區|絲絲心動5包|40|現貨
+零食專區|衛龍 小麵筋5包|50|現貨
+零食專區|酒鬼辣條5包|50|現貨
+零食專區|花椒鍋巴|30|目前缺貨，多規格，請在備註寫想要的
+零食專區|山藥薯片|30|現貨，多規格，請在備註寫想要的
+零食專區|好時達 地攤鍋巴|40|現貨，多規格，請在備註寫想要的
+零食專區|西域皇后10顆|50|現貨
+零食專區|乾噎酸奶10顆|60|現貨
+零食專區|泡椒手撥筍|60|現貨
+零食專區|泡椒筍尖5包|60|現貨
+零食專區|拉絲酸奶10條|50|現貨
+零食專區|超友味 貢菜5包|60|現貨
+零食專區|川阿婆豆卷5包|60|現貨，多規格，請在備註寫想要的
+零食專區|爆漿曲奇丸子10顆|35|現貨
+零食專區|金針菇5包|30|現貨
+零食專區|健達巧克力|90|現貨
+零食專區|大白兔奶糖|60|目前缺貨
+零食專區|黑芯奶昔糖|20|現貨
+零食專區|勁Q彈象皮糖|20|現貨，多規格，請在備註寫想要的
+零食專區|勁爽爆漿薄荷糖|20|現貨
+零食專區|冬季限定 草莓乾|80|現貨
+飲品專區|安慕希酸奶|60|現貨，多規格，請在備註寫想要的
+飲品專區|娃哈哈AD鈣奶|45|現貨
+優惠專區|$299零食福袋|299|現貨
+預購專區|MALiNA正版雪吻巧克力|68|預購，多規格，請在備註寫想要的
+預購專區|Meiji明治雪吻混合巧克力|280|預購，多規格，請在備註寫想要的
+預購專區|Meltykiss 雪吻|68|預購，多規格，請在備註寫想要的
+預購專區|TIROL松尾巧克力|220|預購
+預購專區|火車綠皮太妃糖|200|預購，多規格，請在備註寫想要的</script>
+
+<script>
+var AGENT_LINE_URL=""; // 代理官方LINE連結，例如 https://lin.ee/xxxx
+var P=[],cart={},cat="全部",text="";
+function $(i){return document.getElementById(i)}
+function esc(s){return String(s).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})}
+function ls(k,v){try{if(v===undefined)return localStorage.getItem(k)||"";localStorage.setItem(k,v)}catch(e){return ""}}
+P=$("data").textContent.split("\n").map(function(l){return l.trim()}).filter(Boolean).map(function(l,i){var a=l.split("|");return {id:i,cat:a[0],name:a[1],price:Number(a[2])||0,desc:a[3]||"",out:(a[3]||"").indexOf("缺貨")>=0}});
+function sum(){var c=0,t=0;P.forEach(function(p){var q=cart[p.id]||0;c+=q;t+=q*p.price});return {c:c,t:t}}
+function refresh(){var s=sum();$("cnt").textContent=s.c;$("tot").textContent=s.t.toLocaleString()}
+function chips(){var cs=["全部"];P.forEach(function(p){if(cs.indexOf(p.cat)<0)cs.push(p.cat)});
+  $("chips").innerHTML=cs.map(function(c){return '<button class="chip'+(c===cat?' on':'')+'" data-c="'+esc(c)+'">'+esc(c)+'</button>'}).join("");
+  Array.prototype.forEach.call($("chips").children,function(b){b.onclick=function(){cat=b.getAttribute("data-c");chips();renderList()}})}
+function renderList(){var q=$("search").value.trim().toLowerCase();
+  $("list").innerHTML=P.filter(function(p){return (cat==="全部"||p.cat===cat)&&(!q||(p.name+p.desc).toLowerCase().indexOf(q)>=0)}).map(function(p){
+    var n=cart[p.id]||0;
+    return '<div class="item'+(p.out?' out':'')+'"><div class="info"><div class="name">'+esc(p.name)+'</div><div class="desc">'+esc(p.desc)+'</div><div class="price">$'+p.price+'</div></div>'+
+    '<div class="qty"><button class="ghost" '+(n?'':'disabled ')+'onclick="chg('+p.id+',-1)">−</button><span id="q'+p.id+'">'+n+'</span><button '+(p.out?'disabled ':'')+'onclick="chg('+p.id+',1)">＋</button></div></div>'}).join("")||'<p class="note">找不到商品</p>'}
+function chg(id,d){cart[id]=Math.max(0,(cart[id]||0)+d);refresh();var el=$("q"+id);if(el)el.textContent=cart[id];renderList()}
+function closeSheet(){$("sheet").style.display="none"}
+function openSheet(){var s=sum();
+  if(!s.c){alert("還沒選商品喔");return}
+  var rows=P.filter(function(p){return cart[p.id]}).map(function(p){return '<div class="row"><span>'+esc(p.name)+' x'+cart[p.id]+'</span><span>$'+(p.price*cart[p.id]).toLocaleString()+'</span></div>'}).join("");
+  $("panel").innerHTML='<h3 style="margin-top:0">確認訂單</h3>'+rows+'<p style="text-align:right">合計 <b>NT$ '+s.t.toLocaleString()+'</b></p>'+
+  '<label>代理名稱（第一次填，之後自動記住）</label><input id="f_name" value="'+esc(ls("a_name"))+'">'+
+  '<label>電話</label><input id="f_phone" type="tel" value="'+esc(ls("a_phone"))+'">'+
+  '<label>收件方式（超商店名或地址，可不填）</label><input id="f_addr" value="'+esc(ls("a_addr"))+'">'+
+  '<label>備註（多規格商品請寫想要的口味）</label><textarea id="f_note" rows="2"></textarea>'+
+  '<button class="full" onclick="make()">產生訂單文字</button><button class="ghost full" onclick="closeSheet()">回去改數量</button>';
+  $("sheet").style.display="block"}
+function make(){var n=$("f_name").value.trim(),ph=$("f_phone").value.trim(),ad=$("f_addr").value.trim(),nt=$("f_note").value.trim();
+  if(!n||!ph){alert("請填代理名稱和電話");return}
+  ls("a_name",n);ls("a_phone",ph);ls("a_addr",ad);
+  var s=sum();
+  var t="【訂單】代理："+n+"　電話："+ph+"\n"+P.filter(function(p){return cart[p.id]}).map(function(p){return p.name+" x"+cart[p.id]+"　$"+(p.price*cart[p.id])}).join("\n")+"\n合計：$"+s.t.toLocaleString()+(ad?"\n收件："+ad:"")+(nt?"\n備註："+nt:"");
+  window._t=t;
+  $("panel").innerHTML='<h3 style="margin-top:0">訂單已產生 ✅</h3><pre id="otext"></pre>'+
+  '<button class="full" onclick="copyIt()">① 複製訂單</button>'+
+  (AGENT_LINE_URL?'<a class="full ghost" href="'+esc(AGENT_LINE_URL)+'" target="_blank" rel="noopener">② 到官方LINE貼上送出</a>':'<p class="note">② 複製後回到官方LINE貼上送出</p>')+
+  '<button class="ghost full" onclick="closeSheet()">返回</button>';
+  $("otext").textContent=t}
+function copyIt(){var t=window._t;
+  function fb(){var a=document.createElement("textarea");a.value=t;document.body.appendChild(a);a.select();try{document.execCommand("copy");alert("已複製！")}catch(e){alert("請長按訂單文字手動複製")}document.body.removeChild(a)}
+  try{navigator.clipboard.writeText(t).then(function(){alert("已複製！")},fb)}catch(e){fb()}}
+$("sheet").addEventListener("click",function(e){if(e.target===$("sheet"))closeSheet()});
+chips();renderList();refresh();
+</script>
+</body>
+</html>
